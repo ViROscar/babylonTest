@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+<script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+<script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+<script src="https://cdn.babylonjs.com/postProcessesLibrary/babylonjs.postProcess.min.js"></script>
+<script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+<script src="https://cdn.babylonjs.com/proceduralTexturesLibrary/babylonjs.proceduralTextures.min.js"></script>
+<script src="https://cdn.babylonjs.com/serializers/babylonjs.serializers.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.js"></script>
+
+
+    <style>
+            html, body {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #renderCanvas {
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+            }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = null;
+        var scene = null;
+        var createDefaultEngine = function () { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true }); };
+        var createScene = function () {
+            // Setup the scene
+            var scene = new BABYLON.Scene(engine);
+
+            scene.enablePhysics(null, new BABYLON.CannonJSPlugin());
+
+            var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+            //var light = new BABYLON.PointLight("Omni", new BABYLON.Vector3(0, 100, 100), scene);
+
+            // Create a player that we will be moved by the keyboard
+            var player = BABYLON.Mesh.CreateBox("player1",  2, scene);
+            player.position.y = 1;
+            player.checkCollisions = true;
+            player.material = new BABYLON.StandardMaterial("playerMat", scene);
+            player.material.diffuseColor = new BABYLON.Color3(0, 1, 0);
+
+
+            // Create a player that we will be moved by the keyboard
+            var box = BABYLON.Mesh.CreateBox("box1",  2, scene);
+            box.position.y = 1.5;
+            box.position.x = 3;
+            box.position.z = 3;
+            box.checkCollisions = true;
+            box.material = new BABYLON.StandardMaterial("boxMat", scene);
+            box.material.diffuseColor = new BABYLON.Color3(0, 0, 204);
+
+            //GROUND
+            var ground = BABYLON.Mesh.CreatePlane("ground", 20.0, scene);
+            ground.material = new BABYLON.StandardMaterial("groundMat", scene);
+            ground.material.diffuseColor = new BABYLON.Color3(1, 1, 1);
+            ground.material.backFaceCulling = false;
+            ground.position = new BABYLON.Vector3(0, 0, 0);
+            ground.rotation = new BABYLON.Vector3(Math.PI / 2, 0, 0);
+            ground.checkCollisions = true;
+
+            
+
+            // Keyboard events
+            var inputMap = {};
+            scene.actionManager = new BABYLON.ActionManager(scene);
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+            scene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+            }));
+
+            // Game/Render loop
+            scene.onBeforeRenderObservable.add(() => {
+                
+                if (inputMap["w"] || inputMap["ArrowUp"]) {
+                    player.translate(BABYLON.Axis.Z, 0.1, BABYLON.Space.WORLD);
+                    //player.position.z += 0.1
+                }
+                if (inputMap["a"] || inputMap["ArrowLeft"]) {
+                    player.translate(BABYLON.Axis.X, -0.1, BABYLON.Space.WORLD);
+                    //player.position.x -= 0.1
+                }
+                if (inputMap["s"] || inputMap["ArrowDown"]) {
+                    player.translate(BABYLON.Axis.Z, -0.1, BABYLON.Space.WORLD);
+                    //player.position.z -= 0.1
+                }
+                if (inputMap["d"] || inputMap["ArrowRight"]) {
+                    player.translate(BABYLON.Axis.X, 0.1, BABYLON.Space.WORLD);
+                    //player.position.x += 0.1
+                }
+                if (inputMap[" "]) {
+                    if (player.intersectsMesh(ground, false)) {
+                        console.log("aaa");
+                        
+                    }
+                    else{
+                        player.translate(BABYLON.Axis.Y, 0.5, BABYLON.Space.WORLD);
+                        console.log("bbb");
+                    }
+                    
+                    //player.position.x += 0.1
+                }
+                player.rotationQuaternion.x = 0;
+                player.rotationQuaternion.z = 0;
+                player.rotationQuaternion.y = 0;
+
+                camera.position.z = player.position.z  - 10;
+                camera.position.y = player.position.y + 5;
+                camera.position.x = player.position.x ;
+                camera.setTarget(player.position);
+            });
+
+
+            player.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1, friction: 0.4, restitution: 0}, scene);
+            ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 0.5, restitution: 0 }, scene);
+            box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 0.5, restitution: 0 }, scene);
+
+            return scene;
+
+        };
+
+        engine = createDefaultEngine();
+        if (!engine) throw 'engine should not be null.';
+        scene = createScene();
+
+        engine.runRenderLoop(function () {
+            if (scene) {
+                scene.render();
+            }
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+
+</body>
+
+</html>
